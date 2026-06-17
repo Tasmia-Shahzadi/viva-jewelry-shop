@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Minus, Plus, X, ShoppingBag, Truck, CreditCard, CheckCircle, ArrowRight, Shield, Gift } from 'lucide-react';
+import { useCart } from '../context/CartContext';
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState([]);
+  const { cart, removeFromCart, updateQuantity, clearCart } = useCart();
   const [currentStep, setCurrentStep] = useState(1);
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
@@ -19,42 +20,21 @@ export default function CartPage() {
   const [orderDetails, setOrderDetails] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
 
+  const cartItems = cart || [];
+
   // Load cart from localStorage on mount
   useEffect(() => {
     setIsMounted(true);
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      setCartItems(JSON.parse(savedCart));
-    }
   }, []);
 
-  // Save cart to localStorage whenever it changes
-  useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem('cart', JSON.stringify(cartItems));
-      // Dispatch event for navbar update
-      window.dispatchEvent(new Event('cartUpdated'));
-    }
-  }, [cartItems, isMounted]);
-
-  // Calculate totals
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Calculate totals - FIXED: price ko number mein convert karo
+  const subtotal = cartItems.reduce((sum, item) => {
+    const price = typeof item.price === 'string' ? parseFloat(item.price.replace('$', '')) : item.price;
+    return sum + price * (item.quantity || 1);
+  }, 0);
   const shipping = subtotal > 100 ? 0 : 25;
   const tax = subtotal * 0.05;
   const total = subtotal + shipping + tax;
-
-  const updateQuantity = (id, newQuantity) => {
-    if (newQuantity < 1) return;
-    setCartItems(items =>
-      items.map(item =>
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
-  };
-
-  const removeItem = (id) => {
-    setCartItems(items => items.filter(item => item.id !== id));
-  };
 
   const handleShippingChange = (e) => {
     setShippingInfo({
@@ -73,10 +53,10 @@ export default function CartPage() {
     const orderNumber = 'VIVA-' + Math.random().toString(36).substring(2, 10).toUpperCase();
     const orderData = {
       orderNumber: orderNumber,
-      cart: cartItems.map((item: any) => ({
+      cart: cartItems.map((item) => ({
         name: item.name,
-        price: parseFloat(String(item.price).replace('$', '')),
-        quantity: item.quantity,
+        price: typeof item.price === 'string' ? parseFloat(item.price.replace('$', '')) : item.price,
+        quantity: item.quantity || 1,
         image: item.image
       })),
       shippingInfo: {
@@ -107,8 +87,7 @@ export default function CartPage() {
         const result = await response.json();
         setOrderDetails(orderData);
         setCurrentStep(3);
-        localStorage.removeItem('cart');
-        window.dispatchEvent(new Event('cartUpdated'));
+        clearCart();
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         alert('Error placing order. Please try again.');
@@ -185,11 +164,11 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {/* ✅ FIXED: Order Items - cart use karein */}
+              {/* Order Items */}
               <div className="py-6">
                 <p className="text-xs text-gray-400 tracking-wider uppercase mb-4">Order Items</p>
                 <div className="space-y-4">
-                  {orderDetails?.cart?.map((item: any, index: number) => (
+                  {orderDetails?.cart?.map((item, index) => (
                     <div key={index} className="flex items-center gap-4 p-3 bg-[#faf8f6] rounded-xl">
                       <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-lg" />
                       <div className="flex-1">
@@ -202,24 +181,24 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {/* ✅ FIXED: Total with safe operator */}
+              {/* Total */}
               <div className="border-t border-gray-200 pt-6">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Subtotal</span>
-                    <span className="text-gray-800">${orderDetails?.subtotal?.toFixed(2) ?? '0.00'}</span>
+                    <span className="text-gray-800">${(orderDetails?.subtotal || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Shipping</span>
-                    <span className="text-gray-800">${orderDetails?.shipping?.toFixed(2) ?? '0.00'}</span>
+                    <span className="text-gray-800">${(orderDetails?.shipping || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tax</span>
-                    <span className="text-gray-800">${orderDetails?.tax?.toFixed(2) ?? '0.00'}</span>
+                    <span className="text-gray-800">${(orderDetails?.tax || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-lg font-serif font-light pt-2 border-t border-[#c5a059]/30">
                     <span className="text-gray-800">Total</span>
-                    <span className="text-[#c5a059] font-medium text-xl">${orderDetails?.total?.toFixed(2) ?? '0.00'}</span>
+                    <span className="text-[#c5a059] font-medium text-xl">${(orderDetails?.total || 0).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -388,16 +367,19 @@ export default function CartPage() {
                   Order Summary
                 </h4>
                 <div className="space-y-4">
-                  {cartItems.slice(0, 3).map((item) => (
-                    <div key={item.id} className="flex gap-3 p-2 hover:bg-gray-50 rounded-lg transition">
-                      <img src={item.image} alt={item.name} className="w-12 h-12 object-cover rounded-lg border border-gray-100" />
-                      <div className="flex-1">
-                        <p className="text-xs font-medium text-gray-800 truncate">{item.name}</p>
-                        <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                  {cartItems.slice(0, 3).map((item) => {
+                    const price = typeof item.price === 'string' ? parseFloat(item.price.replace('$', '')) : item.price;
+                    return (
+                      <div key={item.id} className="flex gap-3 p-2 hover:bg-gray-50 rounded-lg transition">
+                        <img src={item.image} alt={item.name} className="w-12 h-12 object-cover rounded-lg border border-gray-100" />
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-gray-800 truncate">{item.name}</p>
+                          <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                        </div>
+                        <p className="text-xs font-medium text-[#c5a059]">${(price * (item.quantity || 1)).toFixed(2)}</p>
                       </div>
-                      <p className="text-xs font-medium text-[#c5a059]">${(item.price * item.quantity).toFixed(2)}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {cartItems.length > 3 && (
                     <p className="text-xs text-gray-400 text-center">+ {cartItems.length - 3} more items</p>
                   )}
@@ -461,38 +443,41 @@ export default function CartPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-4">
-              {cartItems.map((item) => (
-                <div key={item.id} className="bg-white rounded-2xl shadow-sm p-4 md:p-6 flex gap-4 border border-gray-100 hover:shadow-md transition">
-                  <img src={item.image} alt={item.name} className="w-24 h-24 object-cover rounded-lg border border-gray-100" />
-                  <div className="flex-1">
-                    <div className="flex justify-between">
-                      <h4 className="font-serif font-light text-gray-800">{item.name}</h4>
-                      <button onClick={() => removeItem(item.id)} className="text-gray-400 hover:text-red-500 transition p-1 hover:bg-red-50 rounded-full">
-                        <X className="w-4 h-4" />
-                      </button>
+              {cartItems.map((item) => {
+                const price = typeof item.price === 'string' ? parseFloat(item.price.replace('$', '')) : item.price;
+                return (
+                  <div key={item.id} className="bg-white rounded-2xl shadow-sm p-4 md:p-6 flex gap-4 border border-gray-100 hover:shadow-md transition">
+                    <img src={item.image} alt={item.name} className="w-24 h-24 object-cover rounded-lg border border-gray-100" />
+                    <div className="flex-1">
+                      <div className="flex justify-between">
+                        <h4 className="font-serif font-light text-gray-800">{item.name}</h4>
+                        <button onClick={() => removeFromCart(item.id)} className="text-gray-400 hover:text-red-500 transition p-1 hover:bg-red-50 rounded-full">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <p className="text-[#c5a059] font-medium mt-1">${price}</p>
+                      <div className="flex items-center gap-3 mt-3">
+                        <button
+                          onClick={() => updateQuantity(item.id, (item.quantity || 1) - 1)}
+                          className="w-8 h-8 border border-gray-200 rounded-full flex items-center justify-center hover:border-[#c5a059] hover:bg-[#c5a059]/10 transition"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-sm font-medium w-8 text-center">{item.quantity || 1}</span>
+                        <button
+                          onClick={() => updateQuantity(item.id, (item.quantity || 1) + 1)}
+                          className="w-8 h-8 border border-gray-200 rounded-full flex items-center justify-center hover:border-[#c5a059] hover:bg-[#c5a059]/10 transition"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-[#c5a059] font-medium mt-1">${item.price}</p>
-                    <div className="flex items-center gap-3 mt-3">
-                      <button
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        className="w-8 h-8 border border-gray-200 rounded-full flex items-center justify-center hover:border-[#c5a059] hover:bg-[#c5a059]/10 transition"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="w-8 h-8 border border-gray-200 rounded-full flex items-center justify-center hover:border-[#c5a059] hover:bg-[#c5a059]/10 transition"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
+                    <div className="text-right">
+                      <p className="font-serif font-light text-gray-800">${(price * (item.quantity || 1)).toFixed(2)}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-serif font-light text-gray-800">${(item.price * item.quantity).toFixed(2)}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="lg:col-span-1">
