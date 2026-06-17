@@ -111,50 +111,67 @@ export default function ShopPage() {
   };
 
   const placeDirectOrder = async () => {
-  // 1. Validation
-  if (!userInfo.fullName || !userInfo.email || !userInfo.address || !userInfo.city || !userInfo.phone) {
-    alert('Please fill in all required fields');
-    return;
-  }
-
-  setIsBuyNowSubmitting(true);
-
-  // 2. Data Preparation
- const orderData = {
-  orderNumber: 'VIVA-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-  items: [{ ...buyNowProduct, quantity: 1 }],
-  shippingInfo: userInfo,
-  paymentMethod: 'Cash',
-  subtotal: buyNowProduct.price, // <--- Ye add karein
-  total: buyNowProduct.price + (buyNowProduct.price * 0.05),
-  orderDate: new Date().toLocaleString(),
-  estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-};
-  // 3. API Call & Success Handling
-  try {
-    const response = await fetch('/api/save-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orderData),
-    });
-
-    if (response.ok) {
-      alert("Order placed successfully!");
-      setOrderDetails(orderData);
-      setOrderDetails(orderData);
-      setOrderDetails(orderData);
-      setShowBuyNowModal(false);
-      document.body.style.overflow = 'auto';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      alert("Error saving order. Please try again.");
+    // 1. Validation
+    if (!userInfo.fullName || !userInfo.email || !userInfo.address || !userInfo.city || !userInfo.phone) {
+      alert('Please fill in all required fields');
+      return;
     }
-  } catch (error) {
-    console.error("Error:", error);
-    alert("Server connection failed.");
-  } finally {
-    setIsBuyNowSubmitting(false);
-  }
+
+    setIsBuyNowSubmitting(true);
+
+    // ✅ Price ko clean karein (string se number mein convert)
+    const cleanPrice = parseFloat(String(buyNowProduct.price).replace('$', ''));
+
+    // 2. Data Preparation
+    const orderData = {
+      orderNumber: 'VIVA-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+      cart: [{ 
+        name: buyNowProduct.name, 
+        price: cleanPrice,  // ✅ Number
+        quantity: 1, 
+        image: buyNowProduct.image 
+      }],
+      shippingInfo: {
+        fullName: userInfo.fullName,
+        email: userInfo.email,
+        address: userInfo.address,
+        city: userInfo.city,
+        zipCode: userInfo.zipCode,
+        phone: userInfo.phone
+      },
+      paymentMethod: paymentMethod === 'credit-card' ? 'Credit Card' : 'Cash on Delivery',
+      subtotal: cleanPrice,  // ✅ Number
+      shipping: 0,
+      tax: cleanPrice * 0.05,  // ✅ Number
+      total: cleanPrice + (cleanPrice * 0.05),  // ✅ Number
+      orderDate: new Date().toLocaleString(),
+      estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+    };
+
+    // 3. API Call
+    try {
+      const response = await fetch('/api/server-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      });
+
+      if (response.ok) {
+        alert("Order placed successfully!");
+        setOrderDetails(orderData);
+        setShowBuyNowModal(false);
+        document.body.style.overflow = 'auto';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        const error = await response.json();
+        alert("Error: " + (error.message || "Please try again."));
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Server connection failed.");
+    } finally {
+      setIsBuyNowSubmitting(false);
+    }
   };
 
   if (!isMounted) return null;
@@ -222,16 +239,17 @@ export default function ShopPage() {
               <div className="py-6">
                 <p className="text-xs text-gray-400 tracking-wider uppercase mb-4">Order Items</p>
                 <div className="space-y-4">
-                  {orderDetails.items.map((item) => (
-                    <div key={item.id} className="flex items-center gap-4 p-3 bg-[#faf8f6] rounded-xl">
-                      <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-lg" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-800">{item.name}</p>
-                        <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
-                      </div>
-                      <p className="text-sm font-medium text-[#c5a059]">${(item.price * item.quantity).toFixed(2)}</p>
-                    </div>
-                  ))}
+                  {orderDetails?.cart?.map((item: any, index: number) => (
+                      <div key={index} className="flex items-center gap-4 p-3 bg-[#faf8f6] rounded-lg">
+                         <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-md" />
+                       <div className="flex-1">
+                           <p className="font-medium text-gray-800">{item.name}</p>
+                           <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                </div>
+                <p className="font-medium text-[#c5a059]">${(item.price * item.quantity).toFixed(2)}</p>
+             </div>
+            ))}
+                  
                 </div>
               </div>
 

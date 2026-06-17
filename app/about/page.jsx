@@ -218,9 +218,9 @@ export default function AboutPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { name: 'Ahmed Hassan', role: 'Master Jeweler', experience: '25 years', image: 'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?q=80&w=800&auto=format&fit=crop' },
-              { name: 'Sarah Khan', role: 'Diamond Expert', experience: '18 years', image: 'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?q=80&w=800&auto=format&fit=crop' },
-              { name: 'Omar Ali', role: 'Design Lead', experience: '15 years', image: 'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?q=80&w=800&auto=format&fit=crop' }
+              { name: 'Ahmed Hassan', role: 'Master Jeweler', experience: '25 years', image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRn7Dt3xVSbTkaChgbEBjUuEEnEprlOlsBEkQ&s' },
+              { name: 'Sarah Khan', role: 'Diamond Expert', experience: '18 years', image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT8rOrebINuZRnifHthny_mzgx2AWulG7INfw&s' },
+              { name: 'Omar Ali', role: 'Design Lead', experience: '15 years', image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpXY9WCkSR7Kr_NNqTGz0CjhapQ3-yVvMtVg&s' }
             ].map((artisan, index) => (
               <div key={index} className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all group">
                 <div className="relative overflow-hidden">
